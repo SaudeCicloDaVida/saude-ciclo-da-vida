@@ -1,57 +1,66 @@
 # -------------------------------------------------------------------------
 # PROJETO: SAÚDE CICLO DA VIDA (ENTERPRISE EDITION)
-# ARQUIVO: E:\Projetos\SaudeCicloDaVida\START_SESSION.ps1
-# OBJETIVO: ORQUESTRAÇÃO DE INICIALIZAÇÃO, LIMPEZA DE CACHE E AUDITORIA
+# ARQUIVO: START_SESSION.ps1
+# OBJETIVO: DETECÇÃO DINÂMICA DE IP E CORREÇÃO DE ENDPOINTS .ENV
 # -------------------------------------------------------------------------
 
 Clear-Host
+$Root = "C:\Projetos\SaudeCicloDaVida"
+
 Write-Host "==========================================================" -ForegroundColor Cyan
-Write-Host "        VAULTMIND OS | SAÚDE CICLO DA VIDA v2.6          " -ForegroundColor White -BackgroundColor Blue
-Write-Host "            INICIANDO SESSÃO DE DESENVOLVIMENTO           " -ForegroundColor Cyan
+Write-Host "        VAULTMIND OS | SAÚDE CICLO DA VIDA v2.7          " -ForegroundColor White -BackgroundColor Blue
+Write-Host "            SISTEMA DE AUTO-CONFIGURAÇÃO DE REDE          " -ForegroundColor Cyan
 Write-Host "==========================================================" -ForegroundColor Cyan
 
-# 1. VALIDAÇÃO DE ESTRUTURA
-Write-Host "[1/4] Auditando estrutura de pastas..." -ForegroundColor Yellow
-$Paths = @("backend", "web", "mobile")
-foreach ($p in $Paths) {
-    if (Test-Path "E:\Projetos\SaudeCicloDaVida\$p") {
-        Write-Host "  [OK] Diretório $p localizado." -ForegroundColor Green
-    } else {
-        Write-Host "  [ALERTA] Diretório $p não encontrado!" -ForegroundColor Red
+# 1. DETECÇÃO DO IPV4 ATUAL (Wi-Fi)
+Write-Host "[1/5] Detectando IP da rede atual..." -ForegroundColor Yellow
+$localIp = (Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias "Wi-Fi").IPAddress
+if (-not $localIp) {
+    $localIp = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -notmatch "127.0.0.1|169.254" } | Select-Object -First 1).IPAddress
+}
+Write-Host "  > IP Identificado: $localIp" -ForegroundColor Green
+
+# 2. ATUALIZAÇÃO DOS ARQUIVOS .ENV (Injeção de IP)
+Write-Host "`n[2/5] Corrigindo endpoints nos arquivos .env..." -ForegroundColor Yellow
+
+$EnvFiles = @(
+    "$Root\backend\.env",
+    "$Root\mobile\.env",
+    "$Root\web\.env",
+    "$Root\web-admin\.env"
+)
+
+foreach ($file in $EnvFiles) {
+    if (Test-Path $file) {
+        $content = Get-Content $file
+        # Regex para encontrar IPs antigos (formato 192.168.X.X) e substituir pelo novo
+        $newContent = $content -replace '192\.168\.\d{1,3}\.\d{1,3}', $localIp
+        $newContent | Set-Content $file
+        Write-Host "  [OK] $file atualizado para $localIp" -ForegroundColor Green
     }
 }
 
-# 2. LIMPEZA DE AMBIENTE (Prevenindo conflitos de cache)
-Write-Host "`n[2/4] Limpando resíduos e caches temporários..." -ForegroundColor Yellow
-# Limpa logs do NestJS se existirem
-if (Test-Path "backend/dist") { Remove-Item -Path "backend/dist" -Recurse -Force }
-Write-Host "  [OK] Cache de compilação Backend limpo." -ForegroundColor Green
-
-# 3. VERIFICAÇÃO DE PORTAS (4000 e 5173)
-Write-Host "`n[3/4] Verificando integridade das portas de rede..." -ForegroundColor Yellow
-$Ports = @(4000, 5173)
+# 3. VERIFICAÇÃO DE PORTAS (4000, 3000, 5173)
+Write-Host "`n[3/5] Liberando portas de rede..." -ForegroundColor Yellow
+$Ports = @(4000, 3000, 5173)
 foreach ($port in $Ports) {
     $checkPort = Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue
     if ($checkPort) {
-        Write-Host "  [ALERTA] A porta $port já está em uso! Tentando liberar..." -ForegroundColor Red
-        Stop-Process -Id $checkPort.OwningProcess -Force
-        Write-Host "  [OK] Porta $port liberada." -ForegroundColor Green
-    } else {
-        Write-Host "  [OK] Porta $port disponível." -ForegroundColor Green
+        Stop-Process -Id $checkPort.OwningProcess -Force -ErrorAction SilentlyContinue
+        Write-Host "  [OK] Porta $port resetada." -ForegroundColor Green
     }
 }
 
-# 4. INICIALIZAÇÃO DOS SERVIÇOS EM NOVAS JANELAS
-Write-Host "`n[4/4] Disparando motores do ecossistema..." -ForegroundColor Yellow
+# 4. DISPARO DO ECOSSISTEMA
+Write-Host "`n[4/5] Disparando motores em $localIp..." -ForegroundColor Yellow
 
-# Iniciar Backend (NestJS)
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd backend; npm run start:dev" -WindowStyle Normal
-Write-Host "  [START] Servidor API NestJS (Porta 4000) iniciado." -ForegroundColor Green
+# Backend
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "Set-Location $Root\backend; npm run start:dev" -WindowStyle Normal
+# Web Admin
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "Set-Location $Root\web-admin; npm run dev" -WindowStyle Normal
+# Mobile (Forçando IP no Expo)
+$env:EXPO_PACKAGER_HOSTNAME = $localIp
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "Set-Location $Root\mobile; `$env:EXPO_PACKAGER_HOSTNAME='$localIp'; npx expo start -c" -WindowStyle Normal
 
-# Iniciar Frontend (Vite/React)
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd web; npm run dev" -WindowStyle Normal
-Write-Host "  [START] Dashboard Web Vite (Porta 5173) iniciado." -ForegroundColor Green
-
-Write-Host "`n==========================================================" -ForegroundColor Cyan
-Write-Host "     AMBIENTE PRONTO. BOA CODIFICAÇÃO, ARQUITETO!        " -ForegroundColor Cyan
+Write-Host "`n[5/5] Setup concluído. Verifique as novas janelas." -ForegroundColor Cyan
 Write-Host "==========================================================" -ForegroundColor Cyan

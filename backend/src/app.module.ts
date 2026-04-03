@@ -1,8 +1,9 @@
 // -------------------------------------------------------------------------
+// PROJETO: SAÚDE CICLO DA VIDA (ENTERPRISE EDITION)
 // ARQUIVO: backend/src/app.module.ts
 // OBJETIVO: Módulo Raiz (Orquestrador Global)
-// STATUS: INFRAESTRUTURA HÍBRIDA (Prisma + TypeORM SQLite + Socket.IO)
-// VERSÃO: FUSÃO CONTROLADA v2.6 - INJEÇÃO DE MÓDULO DE AUTOMAÇÃO
+// STATUS: INFRAESTRUTURA ESTABILIZADA (MODO OFFLINE/LOCAL)
+// VERSÃO: FUSÃO CONTROLADA v2.7 - BYPASS DE TIMEOUT ETHEREAL
 // -------------------------------------------------------------------------
 
 import { Module } from '@nestjs/common';
@@ -27,7 +28,6 @@ import { EmergencyController } from './emergency.controller';
 
 // --- INFRAESTRUTURA DE E-MAIL ---
 import { MailerModule } from '@nestjs-modules/mailer';
-import * as nodemailer from 'nodemailer';
 
 @Module({
   imports: [
@@ -49,26 +49,20 @@ import * as nodemailer from 'nodemailer';
     ChatModule,     // WebSockets (Salas e Mensagens)
     AutomationModule, // <--- ATIVAÇÃO: Openclaw Bridge
 
-    // 3. Configuração do Carteiro (E-mail Service)
-    MailerModule.forRootAsync({
-      useFactory: async () => {
-        // Cria conta de teste no Ethereal (Ambiente de Dev)
-        const account = await nodemailer.createTestAccount();
-        
-        console.log('--------------------------------------------------');
-        console.log('📧 SERVIÇO DE E-MAIL (TEST MODE)');
-        console.log(`👤 User: ${account.user}`);
-        console.log('--------------------------------------------------');
-        
-        return {
-          transport: {
-            host: account.smtp.host,
-            port: account.smtp.port,
-            secure: account.smtp.secure,
-            auth: { user: account.user, pass: account.pass },
-          },
-          defaults: { from: '"Saúde Ciclo da Vida" <noreply@saudeciclodavida.com>' },
-        };
+    // 3. Configuração do Carteiro (E-mail Service) - MODO ESTÁTICO (FIX v2.7)
+    // Alterado para forRoot (Síncrono) para evitar requisições HTTP no Bootstrap que causavam ETIMEDOUT
+    MailerModule.forRoot({
+      transport: {
+        host: 'smtp.ethereal.email',
+        port: 587,
+        secure: false, // TLS
+        auth: {
+          user: 'pomuvgej42gznfrx@ethereal.email', // Credencial recuperada para manter funcionamento
+          pass: 'seu_password_aqui_se_necessario', // Utilize a senha fixa do seu ambiente
+        },
+      },
+      defaults: {
+        from: '"Saúde Ciclo da Vida" <noreply@saudeciclodavida.com>',
       },
     }),
   ],

@@ -1,15 +1,15 @@
 // -------------------------------------------------------------------------
 // PROJETO: SAÚDE CICLO DA VIDA (ENTERPRISE EDITION)
 // MÓDULO: CHAT SERVICE (CLIENTE SOCKET.IO)
-// OBJETIVO: Gerenciar conexão em tempo real com o Backend
+// ARQUIVO: mobile/src/services/ChatService.ts
+// AJUSTE: CORREÇÃO DE HANDSHAKE REAL-TIME (IP DINÂMICO v2.7)
 // -------------------------------------------------------------------------
 
 import io, { Socket } from 'socket.io-client';
 
-// URL DO BACKEND
-// Nota: Se estiver rodando no Emulador Android, use 'http://10.0.2.2:4000'
-// Se estiver no dispositivo físico, use o IP da sua máquina (ex: 192.168.15.11)
-const SOCKET_URL = 'http://192.168.15.11:4000'; 
+// URL DINÂMICA DO BACKEND
+// O Socket.io remove o sufixo /api/v1 para conectar na raiz do WebSocket
+const SOCKET_URL = process.env.EXPO_PUBLIC_API_URL?.replace('/api/v1', '') || 'http://192.168.0.65:4000';
 
 class ChatServiceImpl {
   private socket: Socket | null = null;
@@ -25,6 +25,7 @@ class ChatServiceImpl {
     this.socket = io(SOCKET_URL, {
       transports: ['websocket'], // Força WebSocket para melhor performance
       reconnection: true,        // Tenta reconectar se a net cair
+      autoConnect: false,        // Controle manual de conexão
     });
 
     this.socket.on('connect', () => {
@@ -38,6 +39,9 @@ class ChatServiceImpl {
     this.socket.on('connect_error', (err) => {
       console.log('⚠️ [CHAT MOBILE] Erro de conexão:', err.message);
     });
+
+    // Executa a conexão manual
+    this.socket.connect();
   }
 
   /**
@@ -53,9 +57,9 @@ class ChatServiceImpl {
    * 3. ENVIAR MENSAGEM
    */
   sendMessage(roomId: string, userId: string, text: string, type: 'TEXT' | 'ALERT' = 'TEXT') {
-    if (!this.socket) return;
+    if (!this.socket) this.connect();
     
-    this.socket.emit('sendMessage', {
+    this.socket?.emit('sendMessage', {
       roomId,
       userId,
       text,
@@ -76,12 +80,12 @@ class ChatServiceImpl {
    * A tela passa uma função para ser executada quando chegar mensagem nova
    */
   onMessageReceived(callback: (message: any) => void) {
-    if (!this.socket) return;
+    if (!this.socket) this.connect();
     
     // Remove listeners antigos para não duplicar mensagens na tela
-    this.socket.off('newMessage'); 
+    this.socket?.off('newMessage'); 
     
-    this.socket.on('newMessage', (msg) => {
+    this.socket?.on('newMessage', (msg) => {
       callback(msg);
     });
   }
@@ -97,4 +101,5 @@ class ChatServiceImpl {
   }
 }
 
+// Exportação da instância única (Singleton) para manter o estado da conexão entre telas
 export const ChatService = new ChatServiceImpl();

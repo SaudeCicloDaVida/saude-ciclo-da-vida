@@ -1,0 +1,286 @@
+# 🧭 CONTEXT SNAPSHOT: Módulo [DOCS]
+**Projeto:** SaudeCicloDaVida
+**Gerado em:** 05/03/2026, 00:26:26
+**Total de Arquivos nesta Partição:** 5
+
+---
+
+================================================================================
+📁 ARQUIVO: docs/MANUAL_AUTENTICACAO.md
+🛠️ EXTENSÃO: .md
+📏 TAMANHO: 4.28 KB
+🕒 ÚLTIMA MODIFICAÇÃO: 20/01/2026, 00:00:05
+================================================================================
+
+```md
+# MANUAL TÉCNICO DE AUTENTICAÇÃO (BLUEPRINT)
+> **Projeto:** Saúde Ciclo da Vida (Enterprise Edition)
+> **Módulo:** Autenticação & Segurança (Mobile)
+> **Versão:** 1.0 (Consolidada)
+> **Status:** EM PRODUÇÃO
+
+---
+
+## 1. VISÃO GERAL
+Este documento descreve a arquitetura, fluxos e regras de negócio do módulo de autenticação. O sistema utiliza uma abordagem híbrida que suporta **Login Online** (via JWT) e **Funcionalidades Offline** (SOS de Emergência) através de persistência local segura.
+
+### 1.1. Tecnologias Envolvidas
+* **Frontend:** React Native (Expo) + TypeScript.
+* **Armazenamento Local:** `@react-native-async-storage/async-storage`.
+* **Comunicação:** Axios (REST API).
+* **Backend:** NestJS (Porta 4000).
+
+---
+
+## 2. MAPA DE FICHEIROS (ARQUITETURA)
+
+| Ficheiro | Função | Tipo |
+| :--- | :--- | :--- |
+| `src/screens/LoginScreen.tsx` | Porta de entrada. Gerencia Login e Lógica SOS. | View |
+| `src/screens/RegisterScreen.tsx` | Formulário de criação de conta. | View |
+| `src/screens/ForgotPasswordScreen.tsx` | Solicitação de reset de senha. | View |
+| `src/services/storage.ts` | **(CRÍTICO)** Gerencia a persistência do perfil para uso offline. | Service |
+| `src/services/api.ts` | Cliente HTTP configurado para a porta 4000. | Service |
+
+---
+
+## 3. REGRAS DE NEGÓCIO CRÍTICAS
+
+### 3.1. O "Botão de Pânico Inteligente" (Smart SOS)
+Diferente de apps comuns, o nosso botão SOS reside na tela de Login mas obedece a uma regra de segurança estrita para evitar trotes, mantendo a acessibilidade em emergências.
+
+* **Regra:** O botão só é habilitado se o dispositivo possuir um "Rastro de Autenticação" (Login prévio realizado com sucesso pelo menos uma vez).
+* **Implementação:**
+    1.  Ao abrir o App (`useEffect`), o sistema consulta o `StorageService`.
+    2.  Se existir perfil salvo: **Botão Vermelho (Ativo)**.
+    3.  Se não existir (Primeira vez): **Botão Cinza (Inativo)** + Alerta Educativo ao clicar.
+
+### 3.2. Persistência de Sessão
+* Ao realizar Login ou Cadastro com sucesso, os dados essenciais do utilizador (`name`, `email`, `photo`) são imediatamente gravados no disco do telemóvel.
+* **Objetivo:** Permitir que o SAMU/Emergência identifique o paciente mesmo que ele esteja sem internet (Offline) na hora do socorro.
+
+---
+
+## 4. FLUXOS DE NAVEGAÇÃO E DADOS
+
+### 4.1. Fluxo de Login (Caminho Feliz)
+1.  **Entrada:** Utilizador insere E-mail e Senha.
+2.  **Processamento:** `POST /auth/login` (Backend).
+3.  **Sucesso (200 OK):**
+    * Recebe `access_token` e objeto `user`.
+    * Invoca `StorageService.saveUser(user)`.
+    * Redireciona para `Home`.
+4.  **Falha (401/400):** Exibe alerta nativo (`Alert.alert`).
+
+### 4.2. Fluxo de Cadastro (Onboarding)
+1.  **Ação:** Clique em "Ainda não tem conta? Cadastre-se".
+2.  **Tela:** `RegisterScreen` (Campos: Nome, E-mail, Senha).
+3.  **Processamento:** `POST /auth/register` (Backend).
+4.  **Sucesso:**
+    * Exibe mensagem de boas-vindas.
+    * Redireciona para Login para forçar a memorização da senha.
+
+### 4.3. Fluxo de Recuperação (Esqueci Senha)
+1.  **Ação:** Clique em "Esqueci minha senha".
+2.  **Tela:** `ForgotPasswordScreen`.
+3.  **Processamento:** Simulação de envio de e-mail (Backend pendente de integração SMTP).
+4.  **Feedback:** Alerta visual confirmando a solicitação.
+
+---
+
+## 5. ESPECIFICAÇÃO DE UI (DESIGN SYSTEM)
+
+### 5.1. Identidade Visual
+* **Tela de Login:** Deve usar obrigatoriamente o logo vertical (`LogoApp.png`) para impacto de marca.
+* **Telas Internas:** Devem usar o logo símbolo (`LogoAppGeral.png`) para economizar espaço e manter foco no formulário.
+
+### 5.2. Safe Areas (Áreas de Segurança)
+Para garantir compatibilidade com "Notches" (recortes de ecrã) e Ilhas Dinâmicas:
+* **Padding Superior:** `Platform.OS === 'android' ? 60 : 70`.
+* **Fundo:** `#FFFFFF` (Branco Puro).
+
+---
+
+## 6. SNIPPETS DE CÓDIGO (REFERÊNCIA RÁPIDA)
+
+### A. Serviço de Armazenamento (O Coração Offline)
+```typescript
+export const StorageService = {
+  async saveUser(user: UserProfile) {
+    await AsyncStorage.setItem('@SCV_USER_PROFILE', JSON.stringify(user));
+  },
+  async getUser() {
+    const json = await AsyncStorage.getItem('@SCV_USER_PROFILE');
+    return json ? JSON.parse(json) : null;
+  }
+};
+```
+
+================================================================================
+📁 ARQUIVO: docs/MANUAL_AUTENTICACAO.md.merged
+🛠️ EXTENSÃO: .merged
+📏 TAMANHO: 4.39 KB
+🕒 ÚLTIMA MODIFICAÇÃO: 21/01/2026, 10:04:37
+================================================================================
+
+```merged
+# MANUAL TÉCNICO DE AUTENTICAÇÃO (BLUEPRINT)
+> **Projeto:** Saúde Ciclo da Vida (Enterprise Edition)
+> **Módulo:** Autenticação & Segurança (Mobile)
+> **Versão:** 1.0 (Consolidada)
+> **Status:** EM PRODUÇÃO
+
+---
+
+## 1. VISÃO GERAL
+Este documento descreve a arquitetura, fluxos e regras de negócio do módulo de autenticação. O sistema utiliza uma abordagem híbrida que suporta **Login Online** (via JWT) e **Funcionalidades Offline** (SOS de Emergência) através de persistência local segura.
+
+### 1.1. Tecnologias Envolvidas
+* **Frontend:** React Native (Expo) + TypeScript.
+* **Armazenamento Local:** `@react-native-async-storage/async-storage`.
+* **Comunicação:** Axios (REST API).
+* **Backend:** NestJS (Porta 4000).
+
+---
+
+## 2. MAPA DE FICHEIROS (ARQUITETURA)
+
+| Ficheiro | Função | Tipo |
+| :--- | :--- | :--- |
+| `src/screens/LoginScreen.tsx` | Porta de entrada. Gerencia Login e Lógica SOS. | View |
+| `src/screens/RegisterScreen.tsx` | Formulário de criação de conta. | View |
+| `src/screens/ForgotPasswordScreen.tsx` | Solicitação de reset de senha. | View |
+| `src/services/storage.ts` | **(CRÍTICO)** Gerencia a persistência do perfil para uso offline. | Service |
+| `src/services/api.ts` | Cliente HTTP configurado para a porta 4000. | Service |
+
+---
+
+## 3. REGRAS DE NEGÓCIO CRÍTICAS
+
+### 3.1. O "Botão de Pânico Inteligente" (Smart SOS)
+Diferente de apps comuns, o nosso botão SOS reside na tela de Login mas obedece a uma regra de segurança estrita para evitar trotes, mantendo a acessibilidade em emergências.
+
+* **Regra:** O botão só é habilitado se o dispositivo possuir um "Rastro de Autenticação" (Login prévio realizado com sucesso pelo menos uma vez).
+* **Implementação:**
+    1.  Ao abrir o App (`useEffect`), o sistema consulta o `StorageService`.
+    2.  Se existir perfil salvo: **Botão Vermelho (Ativo)**.
+    3.  Se não existir (Primeira vez): **Botão Cinza (Inativo)** + Alerta Educativo ao clicar.
+
+### 3.2. Persistência de Sessão
+* Ao realizar Login ou Cadastro com sucesso, os dados essenciais do utilizador (`name`, `email`, `photo`) são imediatamente gravados no disco do telemóvel.
+* **Objetivo:** Permitir que o SAMU/Emergência identifique o paciente mesmo que ele esteja sem internet (Offline) na hora do socorro.
+
+---
+
+## 4. FLUXOS DE NAVEGAÇÃO E DADOS
+
+### 4.1. Fluxo de Login (Caminho Feliz)
+1.  **Entrada:** Utilizador insere E-mail e Senha.
+2.  **Processamento:** `POST /auth/login` (Backend).
+3.  **Sucesso (200 OK):**
+    * Recebe `access_token` e objeto `user`.
+    * Invoca `StorageService.saveUser(user)`.
+    * Redireciona para `Home`.
+4.  **Falha (401/400):** Exibe alerta nativo (`Alert.alert`).
+
+### 4.2. Fluxo de Cadastro (Onboarding)
+1.  **Ação:** Clique em "Ainda não tem conta? Cadastre-se".
+2.  **Tela:** `RegisterScreen` (Campos: Nome, E-mail, Senha).
+3.  **Processamento:** `POST /auth/register` (Backend).
+4.  **Sucesso:**
+    * Exibe mensagem de boas-vindas.
+    * Redireciona para Login para forçar a memorização da senha.
+
+### 4.3. Fluxo de Recuperação (Esqueci Senha)
+1.  **Ação:** Clique em "Esqueci minha senha".
+2.  **Tela:** `ForgotPasswordScreen`.
+3.  **Processamento:** Simulação de envio de e-mail (Backend pendente de integração SMTP).
+4.  **Feedback:** Alerta visual confirmando a solicitação.
+
+---
+
+## 5. ESPECIFICAÇÃO DE UI (DESIGN SYSTEM)
+
+### 5.1. Identidade Visual
+* **Tela de Login:** Deve usar obrigatoriamente o logo vertical (`LogoApp.png`) para impacto de marca.
+* **Telas Internas:** Devem usar o logo símbolo (`LogoAppGeral.png`) para economizar espaço e manter foco no formulário.
+
+### 5.2. Safe Areas (Áreas de Segurança)
+Para garantir compatibilidade com "Notches" (recortes de ecrã) e Ilhas Dinâmicas:
+* **Padding Superior:** `Platform.OS === 'android' ? 60 : 70`.
+* **Fundo:** `#FFFFFF` (Branco Puro).
+
+---
+
+## 6. SNIPPETS DE CÓDIGO (REFERÊNCIA RÁPIDA)
+
+### A. Serviço de Armazenamento (O Coração Offline)
+```typescript
+export const StorageService = {
+  async saveUser(user: UserProfile) {
+    await AsyncStorage.setItem('@SCV_USER_PROFILE', JSON.stringify(user));
+  },
+  async getUser() {
+    const json = await AsyncStorage.getItem('@SCV_USER_PROFILE');
+    return json ? JSON.parse(json) : null;
+  }
+};
+
+# --- CONTEÚDO TEMPLATE ABAIXO ---
+# Manual de Autenticação
+Fluxos, regras e endpoints de autenticação.
+
+```
+
+================================================================================
+📁 ARQUIVO: docs/MODELAGEM_DADOS.md
+🛠️ EXTENSÃO: .md
+📏 TAMANHO: 199 Bytes
+🕒 ÚLTIMA MODIFICAÇÃO: 21/01/2026, 10:04:37
+================================================================================
+
+```md
+# Documento Técnico — Gerado pelo GestorArquivos
+Data de geração: 2026-01-21 10:04:37
+Projeto: SaudeCicloDaVida
+---
+
+# Modelagem de Dados
+Entidades, relacionamentos e diagramas de dados.
+
+```
+
+================================================================================
+📁 ARQUIVO: docs/MODELAGEM_DADOS.md.bak_20260121_100437
+🛠️ EXTENSÃO: .bak_20260121_100437
+📏 TAMANHO: 2.12 KB
+🕒 ÚLTIMA MODIFICAÇÃO: 20/01/2026, 23:22:53
+================================================================================
+
+```bak_20260121_100437
+🗄️ MODELAGEM DE DADOS: Saúde Ciclo da VidaMotor: PostgreSQL | ORM: Prisma | Versão: 1.11. Diagrama Visual (Conceitual)User (Núcleo): O centro de tudo.Profile (Extensão): Dados que não são de login (endereço, telefone).Medication (Prontuário): O remédio em si.Schedule (Horários): Os vários horários de um mesmo remédio.PanicLog (Segurança): Histórico de apertos do botão SOS.2. Detalhamento das Tabelas (Schema)A. Tabela User (Identidade)Responsável pela Autenticação e acesso ao sistema.CampoTipoDescriçãoidUUID (String)Chave Primária (Ex: 550e8400-e29b...).emailStringÚnico. Usado para login.passwordStringHash Bcrypt (Segurança).nameStringNome de exibição.photoUrlStringAvatar do usuário (ou gerado auto).createdAtDateTimeData de entrada no sistema.B. Tabela Profile (Dados Clínicos/Pessoais)Relacionamento: 1-para-1 com User (Um usuário TEM UM perfil).CampoTipoDescriçãoidUUIDChave Primária.userIdUUIDForeign Key (Liga ao Usuário).phoneStringPara contato de emergência.addressStringPara envio de ambulância/ajuda.bloodTypeString(Opcional) Tipo sanguíneo.emergencyContactString(Opcional) Nome do parente.C. Tabela Medication (O Remédio)Relacionamento: 1-para-N com User (Um usuário TEM MUITOS remédios).CampoTipoDescriçãoidUUIDChave Primária.userIdUUIDForeign Key (Dono do remédio).nameStringNome (Ex: Losartana).dosageStringDose (Ex: 50mg).instructionsString(Ex: Tomar em jejum).typeString(Ex: Comprimido, Xarope).D. Tabela MedicationSchedule (A Agenda)Relacionamento: 1-para-N com Medication (Um remédio TEM MUITOS horários).Motivo: Um remédio pode ser tomado às 08:00 e às 20:00.CampoTipoDescriçãoidUUIDChave Primária.medicationIdUUIDForeign Key (Liga ao remédio).timeStringHorário (Ex: "08:00").takenBooleanSe já tomou hoje (Reseta à meia-noite).E. Tabela PanicLog (Auditoria de Segurança)Relacionamento: 1-para-N com User (Um usuário pode ter VÁRIOS alertas).CampoTipoDescriçãoidUUIDChave Primária.userIdUUIDForeign Key (Quem pediu socorro).triggeredAtDateTimeHora exata do clique.latitudeFloatLocalização GPS.longitudeFloatLocalização GPS.batteryLevelIntNível de bateria no momento (Auditoria).
+```
+
+================================================================================
+📁 ARQUIVO: docs/MODELAGEM_DADOS.md.merged
+🛠️ EXTENSÃO: .merged
+📏 TAMANHO: 312 Bytes
+🕒 ÚLTIMA MODIFICAÇÃO: 21/01/2026, 10:04:37
+================================================================================
+
+```merged
+# Documento Técnico — Gerado pelo GestorArquivos
+Data de geração: 2026-01-21 10:04:37
+Projeto: SaudeCicloDaVida
+---
+
+# Modelagem de Dados
+Entidades, relacionamentos e diagramas de dados.
+
+
+# --- CONTEÚDO TEMPLATE ABAIXO ---
+# Modelagem de Dados
+Entidades, relacionamentos e diagramas de dados.
+
+```
+

@@ -1,9 +1,12 @@
 'use client';
 
 // -------------------------------------------------------------------------
+// PROJETO: SAÚDE CICLO DA VIDA (ENTERPRISE EDITION)
 // ARQUIVO: web-admin/src/app/page.tsx
 // TIPO: DASHBOARD DE MONITORAMENTO
 // STATUS: FINAL (Link do Google Maps Oficializado e Testado)
+// AJUSTE: CORREÇÃO DE PREFIXO DE API V1 (ELIMINAÇÃO DO ERRO 404)
+// VERSÃO: FUSÃO TÉCNICA v2.6 (Sincronizada)
 // -------------------------------------------------------------------------
 
 import { useEffect, useState } from 'react';
@@ -45,16 +48,17 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
-  // 2. BUSCAR DADOS
+  // 2. BUSCAR DADOS (Sincronizado com Backend V1)
   const fetchData = async () => {
     try {
-      // A. Busca Alertas
-      const resAlerts = await axios.get('http://localhost:4000/sos');
+      // A. Busca Alertas - AJUSTADO PARA /api/v1/sos
+      const resAlerts = await axios.get('http://localhost:4000/api/v1/sos');
       const activeAlerts = resAlerts.data.filter((a: Alert) => !a.resolved);
       setAlerts(activeAlerts);
 
-      // B. Busca Usuários
-      const resUsers = await axios.get('http://localhost:4000/users');
+      // B. Busca Usuários - AJUSTADO PARA /api/v1/users
+      const resUsers = await axios.get('http://localhost:4000/api/v1/users');
+      // Filtragem mantida conforme lógica original do componente
       const trackedUsers = resUsers.data.filter((u: User) => u.lastLatitude && u.role === 'PACIENTE');
       setUsers(trackedUsers);
 
@@ -69,10 +73,11 @@ export default function Dashboard() {
 
   const resolveAlert = async (id: string) => {
     try {
-      await axios.patch(`http://localhost:4000/sos/${id}`, { resolved: true });
+      // AJUSTADO PARA O ENDPOINT RESTFUL V1
+      await axios.patch(`http://localhost:4000/api/v1/sos/${id}/resolve`, { resolved: true });
       fetchData(); 
     } catch (err) {
-      alert('Erro ao finalizar.');
+      alert('Erro ao finalizar o atendimento.');
     }
   };
 
@@ -93,7 +98,7 @@ export default function Dashboard() {
           </div>
           <div>
             <h1 className="text-xl font-bold text-gray-800">CENTRAL DE MONITORAMENTO</h1>
-            <p className="text-xs text-gray-500 font-medium">Enterprise Edition • v2.4 (Maps Standard)</p>
+            <p className="text-xs text-gray-500 font-medium">Enterprise Edition • v2.6 (Sincronizada)</p>
           </div>
         </div>
         <div className={`flex items-center gap-3 px-4 py-2 rounded-full border ${error ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
@@ -126,7 +131,7 @@ export default function Dashboard() {
                     <div className="flex items-center gap-3">
                       <img src={alert.user?.photoUrl} className="w-12 h-12 rounded-full bg-gray-200" alt="User" />
                       <div>
-                        <h3 className="font-bold text-lg">{alert.user?.name}</h3>
+                        <h3 className="font-bold text-lg">{alert.user?.name || "Paciente"}</h3>
                         <span className="text-xs font-bold text-red-600 bg-red-100 px-2 py-1 rounded-full">SOS ATIVO</span>
                       </div>
                     </div>
@@ -138,7 +143,6 @@ export default function Dashboard() {
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
-                    {/* LINK CORRIGIDO PARA PADRÃO OFICIAL */}
                     <a 
                       href={`https://www.google.com/maps?q=${alert.latitude},${alert.longitude}`}
                       target="_blank"
@@ -169,10 +173,10 @@ export default function Dashboard() {
 
           <div className="grid grid-cols-1 gap-4">
             {users.length === 0 ? (
-               <div className="bg-white rounded-xl border border-gray-200 p-8 text-center shadow-sm">
-                 <Users className="text-gray-400 mx-auto mb-2" size={32} />
-                 <p className="text-gray-500">Nenhum paciente com GPS ativo.</p>
-               </div>
+                <div className="bg-white rounded-xl border border-gray-200 p-8 text-center shadow-sm">
+                  <Users className="text-gray-400 mx-auto mb-2" size={32} />
+                  <p className="text-gray-500">Nenhum paciente com GPS ativo.</p>
+                </div>
             ) : (
               users.map((user) => (
                 <div key={user.id} className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 hover:border-cyan-300 transition-colors">
@@ -193,7 +197,6 @@ export default function Dashboard() {
                       </div>
                     </div>
                     
-                    {/* LINK CORRIGIDO PARA PADRÃO OFICIAL */}
                     <a 
                       href={`https://www.google.com/maps?q=${user.lastLatitude},${user.lastLongitude}`}
                       target="_blank"

@@ -1,16 +1,18 @@
 // -------------------------------------------------------------------------
 // PROJETO: SAÚDE CICLO DA VIDA (ENTERPRISE EDITION)
 // MÓDULO: SERVIÇO DE LOCALIZAÇÃO (CLIENTE MOBILE)
+// ARQUIVO: mobile/src/services/LocationService.ts
 // OBJETIVO: Gerenciar permissões e enviar telemetria para o Backend
+// AJUSTE: INJEÇÃO DINÂMICA DE ENDPOINT (IP v2.7: 192.168.0.65)
 // -------------------------------------------------------------------------
 
 import * as Location from 'expo-location';
 import axios from 'axios';
 import { Alert } from 'react-native';
 
-// URL DO BACKEND (Deve ser a mesma do api.ts ou HomeScreen)
-// Nota: Em produção, isso virá de uma variável de ambiente.
-const API_URL = 'http://192.168.15.11:4000'; 
+// URL DO BACKEND (Sincronizada com o ecossistema v2.7)
+// Prioriza a variável detectada pelo START_SESSION, fallback para o IP atual da rede.
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.0.65:4000/api/v1'; 
 
 export const LocationService = {
 
@@ -56,6 +58,7 @@ export const LocationService = {
     try {
       if (!userId) return;
 
+      // O endpoint final será http://192.168.0.65:4000/api/v1/location
       await axios.post(`${API_URL}/location`, {
         latitude: lat,
         longitude: lng,

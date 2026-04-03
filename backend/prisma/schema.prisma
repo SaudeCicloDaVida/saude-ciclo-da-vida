@@ -1,8 +1,8 @@
 // -------------------------------------------------------------------------
 // PROJETO: SAÚDE CICLO DA VIDA (ENTERPRISE EDITION)
 // ARQUITETURA: DATA LAYER (PostgreSQL + Prisma ORM)
-// GOVERNANÇA: PGT-01 (NORMA EXTREMO ZERO)
-// STATUS: ATUALIZADO (Com Auditoria LGPD / Access Logs)
+// GOVERNANÇA: PGT-01 (NORMA EXTREMO ZERO) / MULTI-TENANCY & BI SUPPORT
+// STATUS: ATUALIZADO (Fusão de Inteligência Organizacional + Saúde Consolidada)
 // -------------------------------------------------------------------------
 
 generator client {
@@ -12,6 +12,32 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+// ==========================================================
+// 0. NÚCLEO ORGANIZACIONAL (BI & MULTI-TENANCY)
+// ==========================================================
+
+// Definição de Tipos de Organização (BI Ready)
+enum OrgType {
+  HOSPITAL
+  CLINIC
+  LABORATORY
+  ONG
+}
+
+// Tabela Mestra de Organizações
+model Organization {
+  id        String   @id @default(uuid())
+  name      String
+  type      OrgType  @default(HOSPITAL)
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relações Hierárquicas
+  users        User[]
+  panicAlerts  PanicAlert[]
 }
 
 // ==========================================================
@@ -32,6 +58,11 @@ model User {
   name          String?
   photoUrl      String?  // Foto do perfil
   role          UserRole @default(PACIENTE)
+  
+  // Elo com a Organização (Multi-Tenancy)
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -46,16 +77,14 @@ model User {
   panicAlerts        PanicAlert[]          // Seus pedidos de socorro
   medications        Medication[]          // Seus remédios
   appointments       Appointment[]         // Suas consultas
-  personalEvents     PersonalEvent[]       // Sua agenda pessoal (festas, etc)
+  personalEvents     PersonalEvent[]       // Sua agenda pessoal
   carePlans          CarePlan[]            // Seus planos de dieta/treino
 
   // --- INJEÇÃO TÉCNICA: RELAÇÃO DE AUDITORIA (LGPD) ---
   auditLogs          AuditLog[]            @relation("UserActions")
 
   // SISTEMA DE CUIDADORES (MULTI-TENANT)
-  // Quem eu cuido? (Eu sou o cuidador)
   caringFor          CareRelationship[]    @relation("CaregiverRelation")
-  // Quem cuida de mim? (Eu sou o paciente)
   caredBy            CareRelationship[]    @relation("PatientRelation")
 
   // TOKEN DE PAREAMENTO (Para vincular via QR Code)
@@ -71,39 +100,38 @@ model PatientProfile {
   height          Float?   // Em cm
   weight          Float?   // Em kg
   allergies       String?  // Texto livre ou JSON
-  chronicDiseases String?  // Doenças crônicas (Diabetes, etc)
+  chronicDiseases String?  // Doenças crônicas
   healthInsurance String?  // Plano de Saúde
   obs             String?  // Observações gerais
+  updatedAt       DateTime @updatedAt
 }
 
 // ==========================================================
 // 2. SEGURANÇA & VÍNCULOS (CUIDADORES)
 // ==========================================================
 
-// Tabela de ligação "Muitos para Muitos" com permissões
 model CareRelationship {
   id              String   @id @default(uuid())
   
-  caregiverId     String   // Quem cuida (Filha)
+  caregiverId     String   // Quem cuida
   caregiver       User     @relation("CaregiverRelation", fields: [caregiverId], references: [id])
   
-  patientId       String   // Quem é cuidado (Pai)
+  patientId       String   // Quem é cuidado
   patient         User     @relation("PatientRelation", fields: [patientId], references: [id])
   
-  permissions     Json     // O que pode ver? { "canViewGPS": true, "canEditMeds": false }
+  permissions     Json     // { "canViewGPS": true, "canEditMeds": false }
   status          String   @default("ACTIVE") // ACTIVE, PENDING, BLOCKED
   createdAt       DateTime @default(now())
 
-  @@unique([caregiverId, patientId]) // Evita duplicidade de vínculo
+  @@unique([caregiverId, patientId])
 }
 
-// Tokens temporários para pareamento seguro (QR Code)
 model PairingToken {
   id        String   @id @default(uuid())
-  code      String   @unique // O código curto (ex: X79-B21)
-  userId    String   // Quem gerou o código (O Paciente)
+  code      String   @unique 
+  userId    String   
   user      User     @relation(fields: [userId], references: [id])
-  expiresAt DateTime // Validade (10 min)
+  expiresAt DateTime 
   createdAt DateTime @default(now())
 }
 
@@ -114,24 +142,28 @@ model EmergencyContact {
   
   name            String
   phone           String   // WhatsApp
-  relationship    String   // Grau de parentesco (Filho, Vizinho)
-  priority        Int      @default(1) // 1 = Avisar primeiro
+  relationship    String   
+  priority        Int      @default(1)
 }
 
 model PanicAlert {
-  id              String   @id @default(uuid())
-  userId          String
-  user            User     @relation(fields: [userId], references: [id])
+  id             String        @id @default(uuid())
+  userId         String
+  user           User          @relation(fields: [userId], references: [id])
   
-  latitude        Float
-  longitude       Float
-  batteryLevel    Int?     // Nível de bateria no momento do pânico
-  resolved        Boolean  @default(false)
-  createdAt       DateTime @default(now())
+  // Vínculo direto com a organização para aceleração de BI (Denormalização)
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+
+  latitude       Float
+  longitude      Float
+  batteryLevel   Int?         // Nível de bateria no momento
+  resolved       Boolean       @default(false)
+  createdAt      DateTime      @default(now())
 }
 
 // ==========================================================
-// 3. FARMÁCIA & MEDICAMENTOS (ENTERPRISE + UI SUPPORT)
+// 3. FARMÁCIA & MEDICAMENTOS
 // ==========================================================
 
 model Medication {
@@ -139,25 +171,18 @@ model Medication {
   userId              String
   user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
-  name                String   // Nome comercial
-  activeIngredient    String?  // Princípio ativo
-  dosage              String   // Ex: 50mg
+  name                String   
+  activeIngredient    String?  
+  dosage              String   
+  type                String   @default("pill") // pill, liquid, etc
+  instructions        String?  
+  stockCurrent        Int      @default(0) 
+  stockMin            Int      @default(5) 
+  prescriptionDate    DateTime? 
+  prescriptionExpires DateTime? 
+  photoUrl            String?  
   
-  // INJEÇÃO TÉCNICA: Campo type adicionado para suporte a ícones no App
-  type                String   @default("pill") // pill, liquid, injection, cream
-  
-  instructions        String?  // Instruções gerais (Ex: "Comer antes")
-
-  stockCurrent        Int      @default(0) // Quantos comprimidos tem na caixa
-  stockMin            Int      @default(5) // Avisar quando chegar em 5
-  
-  prescriptionDate    DateTime? // Data da receita
-  prescriptionExpires DateTime? // Validade da receita (Para alertar renovação)
-  
-  photoUrl            String?  // Foto da caixa
-  
-  schedules           MedicationSchedule[] // Horários de tomar
-  
+  schedules           MedicationSchedule[] 
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 }
@@ -167,10 +192,8 @@ model MedicationSchedule {
   medicationId String
   medication   Medication @relation(fields: [medicationId], references: [id], onDelete: Cascade)
   
-  time         String   // Hora (Ex: "08:00")
-  frequency    String?  // Texto (Ex: "De 8 em 8h")
-  
-  // LOGS: O jeito Enterprise de saber se tomou (Histórico Real)
+  time         String   
+  frequency    String?  
   logs         IntakeLog[] 
 }
 
@@ -179,9 +202,9 @@ model IntakeLog {
   scheduleId   String
   schedule     MedicationSchedule @relation(fields: [scheduleId], references: [id])
   
-  status       String   // TAKEN (Tomou), MISSED (Esqueceu), SKIPPED (Pulou)
-  takenAt      DateTime @default(now()) // Hora real que tomou
-  scheduledFor DateTime // Hora que deveria ter tomado
+  status       String   // TAKEN, MISSED, SKIPPED
+  takenAt      DateTime @default(now()) 
+  scheduledFor DateTime 
 }
 
 // ==========================================================
@@ -193,8 +216,8 @@ model Clinic {
   name      String
   address   String
   phone     String?
-  latitude  Float    // Para GPS
-  longitude Float    // Para GPS
+  latitude  Float    
+  longitude Float    
   
   appointments Appointment[]
 }
@@ -202,12 +225,12 @@ model Clinic {
 model Professional {
   id        String   @id @default(uuid())
   name      String
-  specialty String   // Cardiologista, Fisio
-  registry  String?  // CRM, CREFITO
+  specialty String   
+  registry  String?  
   phone     String?
   
   appointments Appointment[]
-  carePlans    CarePlan[] // Planos criados por este médico
+  carePlans    CarePlan[] 
 }
 
 model Appointment {
@@ -215,17 +238,16 @@ model Appointment {
   userId         String
   user           User     @relation(fields: [userId], references: [id])
   
-  date           DateTime // Data e Hora da consulta
-  
+  date           DateTime 
   clinicId       String?
   clinic         Clinic?  @relation(fields: [clinicId], references: [id])
   
   professionalId String?
   professional   Professional? @relation(fields: [professionalId], references: [id])
   
-  specialty      String?  // Caso não tenha profissional cadastrado, guarda só texto
-  notes          String?  // "Levar exames antigos"
-  status         String   @default("SCHEDULED") // SCHEDULED, COMPLETED, CANCELED
+  specialty      String?  
+  notes          String?  
+  status         String   @default("SCHEDULED") 
 }
 
 model PersonalEvent {
@@ -233,13 +255,12 @@ model PersonalEvent {
   userId      String
   user        User     @relation(fields: [userId], references: [id])
   
-  title       String   // "Aniversário da Neta"
+  title       String   
   description String?
-  category    String   // LAZER, FAMILIA, FINANCEIRO
-  
+  category    String   
   startAt     DateTime
   endAt       DateTime?
-  location    String?  // Texto ou GPS
+  location    String?  
   isDone      Boolean  @default(false)
 }
 
@@ -247,34 +268,28 @@ model PersonalEvent {
 // 5. LIFESTYLE (DIETAS & TREINOS)
 // ==========================================================
 
-// BIBLIOTECA (Templates prontos)
 model CareTemplate {
   id          String   @id @default(uuid())
-  title       String   // "Dieta Low Carb Iniciante"
-  category    String   // DIETA, TREINO, FISIO
-  objective   String?  // "Perder Peso", "Ganhar Massa"
-  
+  title       String   
+  category    String   
+  objective   String?  
   content     Json     
-  
-  isPublic    Boolean  @default(false) // Se true, todos veem. Se false, só quem criou.
-  createdBy   String?  // ID do Profissional que criou (opcional)
+  isPublic    Boolean  @default(false) 
+  createdBy   String?  
 }
 
-// EXECUÇÃO (O Plano do Usuário)
 model CarePlan {
   id             String   @id @default(uuid())
   userId         String
   user           User     @relation(fields: [userId], references: [id])
   
-  title          String   // "Minha Dieta de Setembro"
-  category       String   // DIETA, TREINO
-  
+  title          String   
+  category       String   
   content        Json
-  
   startDate      DateTime @default(now())
   endDate        DateTime?
   
-  professionalId String?  // Se foi receitado por um médico
+  professionalId String?  
   professional   Professional? @relation(fields: [professionalId], references: [id])
   
   active         Boolean  @default(true)
@@ -285,18 +300,17 @@ model CarePlan {
 // ==========================================================
 
 model AuditLog {
-  id            String   @id @default(uuid())
-  actorId       String?  // ID de quem acessou
-  action        String   // Ex: "OPENCLAW_PAYLOAD_EXTRACTION"
-  targetId      String?  // ID do paciente acessado
-  entity        String   // Ex: "User", "PatientProfile"
-  details       String?  // Detalhes extras
-  ipAddress     String?
-  userAgent     String?
-  createdAt     DateTime @default(now())
+  id        String   @id @default(uuid())
+  actorId   String?  
+  action    String   
+  targetId  String?  
+  entity    String   
+  details   String?  
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
 
-  // Relacionamento com o User que executou a ação
-  actor         User?    @relation("UserActions", fields: [actorId], references: [id])
+  actor     User?    @relation("UserActions", fields: [actorId], references: [id])
 
   @@index([actorId])
   @@index([targetId])

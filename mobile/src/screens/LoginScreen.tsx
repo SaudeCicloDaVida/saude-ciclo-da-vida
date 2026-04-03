@@ -1,7 +1,7 @@
 // -------------------------------------------------------------------------
 // PROJETO: SAÚDE CICLO DA VIDA (ENTERPRISE EDITION)
 // MÓDULO: TELA DE AUTENTICAÇÃO (LOGIN)
-// VERSÃO: COMPACT ENTERPRISE (Placeholders Internos + Espaçamento Otimizado)
+// VERSÃO: v2.7 - DINÂMICA (Sincronizada com IP v2.7 via API Service)
 // -------------------------------------------------------------------------
 
 import React, { useState, useEffect } from 'react';
@@ -10,14 +10,11 @@ import {
   ActivityIndicator, Alert, KeyboardAvoidingView, Platform, StyleSheet, ScrollView 
 } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
-import axios from 'axios';
 import { FontAwesome } from '@expo/vector-icons'; 
 
-// --- IMPORTAÇÕES ORIGINAIS ---
+// --- IMPORTAÇÕES ORIGINAIS E SERVIÇOS ---
 import PanicButtonSmall from '../components/PanicButtonSmall';
-
-// --- CONFIGURAÇÃO DE REDE (IP FIXO) ---
-const API_URL = 'http://192.168.15.11:4000'; 
+import api from '../services/api'; // Injeção da instância dinâmica v2.7 (Substitui API_URL fixo)
 
 export default function LoginScreen({ navigation }: any) {
   const [isLoginTab, setIsLoginTab] = useState(true);
@@ -61,13 +58,15 @@ export default function LoginScreen({ navigation }: any) {
     const endpoint = isLoginTab ? '/auth/login' : '/auth/register'; 
 
     try {
-      console.log(`📡 Conectando em: ${API_URL}${endpoint}`);
+      // O log agora reflete a baseURL dinâmica da instância api
+      console.log(`📡 Conectando em: ${api.defaults.baseURL}${endpoint}`);
       
       const payload = isLoginTab 
         ? { email, password } 
         : { name, email, password };
 
-      const response = await axios.post(`${API_URL}${endpoint}`, payload);
+      // Utilizando a instância 'api' validada para evitar erros de IP em diferentes redes
+      const response = await api.post(endpoint, payload);
       
       // Cenário 1: Cadastro realizado
       if (!isLoginTab) {
@@ -123,7 +122,7 @@ export default function LoginScreen({ navigation }: any) {
           
           {/* 1. LOGO (PADRÃO UNIVERSAL 120px) */}
           <View style={styles.header}>
-             <Image source={require('../../assets/LogoApp.png')} style={styles.logo} />
+              <Image source={require('../../assets/LogoApp.png')} style={styles.logo} />
           </View>
 
           {/* 2. ABAS (TABS) */}
@@ -254,7 +253,7 @@ const styles = StyleSheet.create({
   // Header Compacto
   header: { 
     alignItems: 'center', 
-    marginBottom: 20 // 2 Linhas de respiro
+    marginBottom: 20 
   },
   logo: { width: 120, height: 120, resizeMode: 'contain' },
   
@@ -266,7 +265,6 @@ const styles = StyleSheet.create({
   activeTabText: { color: '#2563EB', fontWeight: 'bold' },
 
   formArea: { flex: 1 },
-  // Espaçamento Otimizado (Não grudado, mas compacto)
   inputGroup: { marginBottom: 15 },
   input: { 
     backgroundColor: '#F9FAFB', 
