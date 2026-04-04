@@ -1,10 +1,3 @@
-// -------------------------------------------------------------------------
-// PROJETO: SAÚDE CICLO DA VIDA (ENTERPRISE EDITION)
-// ARQUITETURA: DATA LAYER (PostgreSQL + Prisma ORM)
-// GOVERNANÇA: PGT-01 (NORMA EXTREMO ZERO) / MULTI-TENANCY & BI SUPPORT
-// STATUS: ATUALIZADO (Fusão de Inteligência Organizacional + Saúde Consolidada)
-// -------------------------------------------------------------------------
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -14,11 +7,228 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ==========================================================
-// 0. NÚCLEO ORGANIZACIONAL (BI & MULTI-TENANCY)
-// ==========================================================
+model Organization {
+  id          String       @id @default(uuid())
+  name        String
+  type        OrgType      @default(HOSPITAL)
+  slug        String       @unique
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  panicAlerts PanicAlert[]
+  users       User[]
+}
 
-// Definição de Tipos de Organização (BI Ready)
+model User {
+  id                String             @id @default(uuid())
+  email             String             @unique
+  password          String
+  name              String?
+  photoUrl          String?
+  role              UserRole           @default(PACIENTE)
+  organizationId    String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  lastLatitude      Float?
+  lastLongitude     Float?
+  lastSeenAt        DateTime?
+  appointments      Appointment[]
+  auditLogs         AuditLog[]         @relation("UserActions")
+  carePlans         CarePlan[]
+  caringFor         CareRelationship[] @relation("CaregiverRelation")
+  caredBy           CareRelationship[] @relation("PatientRelation")
+  emergencyContacts EmergencyContact[]
+  medications       Medication[]
+  pairingTokens     PairingToken[]
+  panicAlerts       PanicAlert[]
+  profile           PatientProfile?
+  personalEvents    PersonalEvent[]
+  organization      Organization?      @relation(fields: [organizationId], references: [id])
+}
+
+model PatientProfile {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  bloodType       String?
+  height          Float?
+  weight          Float?
+  allergies       String?
+  chronicDiseases String?
+  healthInsurance String?
+  obs             String?
+  updatedAt       DateTime @updatedAt
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model CareRelationship {
+  id          String   @id @default(uuid())
+  caregiverId String
+  patientId   String
+  permissions Json
+  status      String   @default("ACTIVE")
+  createdAt   DateTime @default(now())
+  caregiver   User     @relation("CaregiverRelation", fields: [caregiverId], references: [id])
+  patient     User     @relation("PatientRelation", fields: [patientId], references: [id])
+
+  @@unique([caregiverId, patientId])
+}
+
+model PairingToken {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model EmergencyContact {
+  id           String @id @default(uuid())
+  userId       String
+  name         String
+  phone        String
+  relationship String
+  priority     Int    @default(1)
+  user         User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PanicAlert {
+  id             String        @id @default(uuid())
+  userId         String
+  organizationId String?
+  latitude       Float
+  longitude      Float
+  batteryLevel   Int?
+  resolved       Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  user           User          @relation(fields: [userId], references: [id])
+}
+
+model Medication {
+  id                  String               @id @default(uuid())
+  userId              String
+  name                String
+  activeIngredient    String?
+  dosage              String
+  type                String               @default("pill")
+  instructions        String?
+  stockCurrent        Int                  @default(0)
+  stockMin            Int                  @default(5)
+  prescriptionDate    DateTime?
+  prescriptionExpires DateTime?
+  photoUrl            String?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  schedules           MedicationSchedule[]
+}
+
+model MedicationSchedule {
+  id           String      @id @default(uuid())
+  medicationId String
+  time         String
+  frequency    String?
+  logs         IntakeLog[]
+  medication   Medication  @relation(fields: [medicationId], references: [id], onDelete: Cascade)
+}
+
+model IntakeLog {
+  id           String             @id @default(uuid())
+  scheduleId   String
+  status       String
+  takenAt      DateTime           @default(now())
+  scheduledFor DateTime
+  schedule     MedicationSchedule @relation(fields: [scheduleId], references: [id])
+}
+
+model Clinic {
+  id           String        @id @default(uuid())
+  name         String
+  address      String
+  phone        String?
+  latitude     Float
+  longitude    Float
+  appointments Appointment[]
+}
+
+model Professional {
+  id           String        @id @default(uuid())
+  name         String
+  specialty    String
+  registry     String?
+  phone        String?
+  appointments Appointment[]
+  carePlans    CarePlan[]
+}
+
+model Appointment {
+  id             String        @id @default(uuid())
+  userId         String
+  date           DateTime
+  clinicId       String?
+  professionalId String?
+  specialty      String?
+  notes          String?
+  status         String        @default("SCHEDULED")
+  clinic         Clinic?       @relation(fields: [clinicId], references: [id])
+  professional   Professional? @relation(fields: [professionalId], references: [id])
+  user           User          @relation(fields: [userId], references: [id])
+}
+
+model PersonalEvent {
+  id          String    @id @default(uuid())
+  userId      String
+  title       String
+  description String?
+  category    String
+  startAt     DateTime
+  endAt       DateTime?
+  location    String?
+  isDone      Boolean   @default(false)
+  user        User      @relation(fields: [userId], references: [id])
+}
+
+model CareTemplate {
+  id        String  @id @default(uuid())
+  title     String
+  category  String
+  objective String?
+  content   Json
+  isPublic  Boolean @default(false)
+  createdBy String?
+}
+
+model CarePlan {
+  id             String        @id @default(uuid())
+  userId         String
+  title          String
+  category       String
+  content        Json
+  startDate      DateTime      @default(now())
+  endDate        DateTime?
+  professionalId String?
+  active         Boolean       @default(true)
+  professional   Professional? @relation(fields: [professionalId], references: [id])
+  user           User          @relation(fields: [userId], references: [id])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  actorId   String?
+  action    String
+  targetId  String?
+  entity    String
+  details   String?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  actor     User?    @relation("UserActions", fields: [actorId], references: [id])
+
+  @@index([actorId])
+  @@index([targetId])
+  @@index([action])
+}
+
 enum OrgType {
   HOSPITAL
   CLINIC
@@ -26,293 +236,9 @@ enum OrgType {
   ONG
 }
 
-// Tabela Mestra de Organizações
-model Organization {
-  id        String   @id @default(uuid())
-  name      String
-  type      OrgType  @default(HOSPITAL)
-  slug      String   @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relações Hierárquicas
-  users        User[]
-  panicAlerts  PanicAlert[]
-}
-
-// ==========================================================
-// 1. NÚCLEO DE IDENTIDADE & ACESSO
-// ==========================================================
-
 enum UserRole {
   ADMIN
   PACIENTE
   FAMILIAR
-  PROFISSIONAL // Médico, Enfermeiro, Fisio
-}
-
-model User {
-  id            String   @id @default(uuid())
-  email         String   @unique
-  password      String   // Senha hash
-  name          String?
-  photoUrl      String?  // Foto do perfil
-  role          UserRole @default(PACIENTE)
-  
-  // Elo com a Organização (Multi-Tenancy)
-  organizationId String?
-  organization   Organization? @relation(fields: [organizationId], references: [id])
-
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  // --- GEOLOCALIZAÇÃO ATIVA (MODO GUARDIÃO) ---
-  lastLatitude  Float?
-  lastLongitude Float?
-  lastSeenAt    DateTime? // Data/Hora da última posição recebida
-
-  // RELACIONAMENTOS (O Usuário é o centro de tudo)
-  profile            PatientProfile?       // 1 Usuário tem 1 Perfil de Saúde
-  emergencyContacts  EmergencyContact[]    // Seus contatos de emergência
-  panicAlerts        PanicAlert[]          // Seus pedidos de socorro
-  medications        Medication[]          // Seus remédios
-  appointments       Appointment[]         // Suas consultas
-  personalEvents     PersonalEvent[]       // Sua agenda pessoal
-  carePlans          CarePlan[]            // Seus planos de dieta/treino
-
-  // --- INJEÇÃO TÉCNICA: RELAÇÃO DE AUDITORIA (LGPD) ---
-  auditLogs          AuditLog[]            @relation("UserActions")
-
-  // SISTEMA DE CUIDADORES (MULTI-TENANT)
-  caringFor          CareRelationship[]    @relation("CaregiverRelation")
-  caredBy            CareRelationship[]    @relation("PatientRelation")
-
-  // TOKEN DE PAREAMENTO (Para vincular via QR Code)
-  pairingTokens      PairingToken[]
-}
-
-model PatientProfile {
-  id              String   @id @default(uuid())
-  userId          String   @unique
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  bloodType       String?  // Ex: A+, O-
-  height          Float?   // Em cm
-  weight          Float?   // Em kg
-  allergies       String?  // Texto livre ou JSON
-  chronicDiseases String?  // Doenças crônicas
-  healthInsurance String?  // Plano de Saúde
-  obs             String?  // Observações gerais
-  updatedAt       DateTime @updatedAt
-}
-
-// ==========================================================
-// 2. SEGURANÇA & VÍNCULOS (CUIDADORES)
-// ==========================================================
-
-model CareRelationship {
-  id              String   @id @default(uuid())
-  
-  caregiverId     String   // Quem cuida
-  caregiver       User     @relation("CaregiverRelation", fields: [caregiverId], references: [id])
-  
-  patientId       String   // Quem é cuidado
-  patient         User     @relation("PatientRelation", fields: [patientId], references: [id])
-  
-  permissions     Json     // { "canViewGPS": true, "canEditMeds": false }
-  status          String   @default("ACTIVE") // ACTIVE, PENDING, BLOCKED
-  createdAt       DateTime @default(now())
-
-  @@unique([caregiverId, patientId])
-}
-
-model PairingToken {
-  id        String   @id @default(uuid())
-  code      String   @unique 
-  userId    String   
-  user      User     @relation(fields: [userId], references: [id])
-  expiresAt DateTime 
-  createdAt DateTime @default(now())
-}
-
-model EmergencyContact {
-  id              String   @id @default(uuid())
-  userId          String
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  name            String
-  phone           String   // WhatsApp
-  relationship    String   
-  priority        Int      @default(1)
-}
-
-model PanicAlert {
-  id             String        @id @default(uuid())
-  userId         String
-  user           User          @relation(fields: [userId], references: [id])
-  
-  // Vínculo direto com a organização para aceleração de BI (Denormalização)
-  organizationId String?
-  organization   Organization? @relation(fields: [organizationId], references: [id])
-
-  latitude       Float
-  longitude      Float
-  batteryLevel   Int?         // Nível de bateria no momento
-  resolved       Boolean       @default(false)
-  createdAt      DateTime      @default(now())
-}
-
-// ==========================================================
-// 3. FARMÁCIA & MEDICAMENTOS
-// ==========================================================
-
-model Medication {
-  id                  String   @id @default(uuid())
-  userId              String
-  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  name                String   
-  activeIngredient    String?  
-  dosage              String   
-  type                String   @default("pill") // pill, liquid, etc
-  instructions        String?  
-  stockCurrent        Int      @default(0) 
-  stockMin            Int      @default(5) 
-  prescriptionDate    DateTime? 
-  prescriptionExpires DateTime? 
-  photoUrl            String?  
-  
-  schedules           MedicationSchedule[] 
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-}
-
-model MedicationSchedule {
-  id           String   @id @default(uuid())
-  medicationId String
-  medication   Medication @relation(fields: [medicationId], references: [id], onDelete: Cascade)
-  
-  time         String   
-  frequency    String?  
-  logs         IntakeLog[] 
-}
-
-model IntakeLog {
-  id           String   @id @default(uuid())
-  scheduleId   String
-  schedule     MedicationSchedule @relation(fields: [scheduleId], references: [id])
-  
-  status       String   // TAKEN, MISSED, SKIPPED
-  takenAt      DateTime @default(now()) 
-  scheduledFor DateTime 
-}
-
-// ==========================================================
-// 4. GESTÃO MÉDICA & AGENDA
-// ==========================================================
-
-model Clinic {
-  id        String   @id @default(uuid())
-  name      String
-  address   String
-  phone     String?
-  latitude  Float    
-  longitude Float    
-  
-  appointments Appointment[]
-}
-
-model Professional {
-  id        String   @id @default(uuid())
-  name      String
-  specialty String   
-  registry  String?  
-  phone     String?
-  
-  appointments Appointment[]
-  carePlans    CarePlan[] 
-}
-
-model Appointment {
-  id             String   @id @default(uuid())
-  userId         String
-  user           User     @relation(fields: [userId], references: [id])
-  
-  date           DateTime 
-  clinicId       String?
-  clinic         Clinic?  @relation(fields: [clinicId], references: [id])
-  
-  professionalId String?
-  professional   Professional? @relation(fields: [professionalId], references: [id])
-  
-  specialty      String?  
-  notes          String?  
-  status         String   @default("SCHEDULED") 
-}
-
-model PersonalEvent {
-  id          String   @id @default(uuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id])
-  
-  title       String   
-  description String?
-  category    String   
-  startAt     DateTime
-  endAt       DateTime?
-  location    String?  
-  isDone      Boolean  @default(false)
-}
-
-// ==========================================================
-// 5. LIFESTYLE (DIETAS & TREINOS)
-// ==========================================================
-
-model CareTemplate {
-  id          String   @id @default(uuid())
-  title       String   
-  category    String   
-  objective   String?  
-  content     Json     
-  isPublic    Boolean  @default(false) 
-  createdBy   String?  
-}
-
-model CarePlan {
-  id             String   @id @default(uuid())
-  userId         String
-  user           User     @relation(fields: [userId], references: [id])
-  
-  title          String   
-  category       String   
-  content        Json
-  startDate      DateTime @default(now())
-  endDate        DateTime?
-  
-  professionalId String?  
-  professional   Professional? @relation(fields: [professionalId], references: [id])
-  
-  active         Boolean  @default(true)
-}
-
-// ==========================================================
-// 6. GOVERNANÇA & COMPLIANCE (LGPD)
-// ==========================================================
-
-model AuditLog {
-  id        String   @id @default(uuid())
-  actorId   String?  
-  action    String   
-  targetId  String?  
-  entity    String   
-  details   String?  
-  ipAddress String?
-  userAgent String?
-  createdAt DateTime @default(now())
-
-  actor     User?    @relation("UserActions", fields: [actorId], references: [id])
-
-  @@index([actorId])
-  @@index([targetId])
-  @@index([action])
+  PROFISSIONAL
 }

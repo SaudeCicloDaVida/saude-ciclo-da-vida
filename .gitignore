@@ -1,0 +1,10 @@
+# --- SEGURANÇA ENTERPRISE (SAÚDE CICLO DA VIDA) ---
+.env
+.env.local
+node_modules/
+dist/
+.next/
+*.db
+*.log
+snapshot-saudeciclodavida/
+backup_fisico/

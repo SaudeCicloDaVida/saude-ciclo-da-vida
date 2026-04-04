@@ -1,0 +1,48 @@
+# 📁 ESTRUTURA DO PROJETO: SaudeCicloDaVida
+> Status: VALIDADO EM 20/01/2026 (Ciclo Autenticação Completo)
+
+```text
+    📄 docker-compose.yml
+    📄 ESTRUTURA_PROJETO.md
+    📄 DESIGN_SYSTEM.md
+    📄 PADROES.md
+    📄 README.md
+    📂 docs/
+        📄 MANUAL_AUTENTICACAO.md  <-- (NOVO: Blueprint da Segurança)
+    📂 backend/
+        📄 .env
+        ...
+        📂 src/
+            📄 app.module.ts
+            📄 main.ts (Porta 4000)
+            📄 prisma.service.ts
+            📂 auth/
+                📄 auth.controller.ts (Login + Register)
+                📄 auth.module.ts
+                📄 auth.service.ts    (Lógica Bcrypt + JWT)
+                📂 dto/
+                    📄 register.dto.ts <-- (NOVO: Validação)
+            📂 users/
+                📄 users.module.ts
+                📄 users.service.ts   (Create + Find + Medications)
+    📂 mobile/
+        📄 App.tsx (Rotas: Auth + App + Panic)
+        ...
+        📂 src/
+            📂 components/
+                📄 PanicButtonSmall.tsx
+                📄 LogoutButton.tsx
+            📂 screens/
+                📄 LoginScreen.tsx        (Com SOS Inteligente)
+                📄 RegisterScreen.tsx     <-- (NOVO)
+                📄 ForgotPasswordScreen.tsx <-- (NOVO)
+                📄 HomeScreen.tsx         (Persistência de Dados)
+                📄 MedicationScreen.tsx
+                📄 PanicScreen.tsx
+            📂 services/
+                📄 api.ts (Porta 4000)
+                📄 storage.ts             <-- (NOVO: Persistência Offline)
+            📂 styles/
+                📄 global.ts
+    📂 web-admin/
+        ... (Estrutura Next.js padrão)
